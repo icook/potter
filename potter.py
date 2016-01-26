@@ -47,7 +47,7 @@ def main(images, containers):
     image_name = ""
     for i, step in enumerate(config['steps']):
         typ = step.get('type')
-        logger.info("Running step {} type {}".format(i, typ))
+        logger.info("==> Step {} {}".format(i, step))
 
         # Check if there is a cache, and if so, should we use it?
         start_step = time.time()
@@ -55,10 +55,34 @@ def main(images, containers):
                   "potter-config-hash": str(hash(json.dumps(step)))}
         info = client.images(all=True, filters={'label': "potter-key={}".format(labels['potter-key'])})
         if info:
-            info = dict(config_hash=info[0]['Labels'].get('potter-config-hash'),
+            info = dict(id=info[0]['Id'],
+                        config_hash=info[0]['Labels'].get('potter-config-hash'),
                         created=datetime.datetime.utcfromtimestamp(info[0]['Created']),
-                        runtime=info[0]['Labels'].get('potter-runtime'))
+                        runtime=float(info[0]['Labels'].get('potter-runtime')))
             logger.info("Found cache for step. {}".format(info))
+
+            # Determine cache usage by step config
+            use_cache = True
+            if info['config_hash'] != labels['potter-config-hash']:
+                logger.info("Skipping cache because step configuration has changed")
+                use_cache = False
+
+            if step.get('nocache') is True:
+                logger.info("Skipping cache because nocache flag")
+                use_cache = False
+
+            invalidate_after = step.get('invalidate_after')
+            if invalidate_after is not None:
+                delta = datetime.timedelta(seconds=int(invalidate_after))
+                if info['created'] > datetime.datetime.utcnow() - delta:
+                    logger.info("Skipping cache because cache image is too old.")
+                    use_cache = False
+
+            if use_cache:
+                logger.info("Using cached image id {}".format(info['id']))
+                image_name = info['id']
+                continue
+
 
         container_name = None
         if typ == 'command':
