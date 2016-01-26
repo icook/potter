@@ -1,0 +1,14 @@
+name: python
+steps:
+    - type: pull
+      image: python
+    - type: command
+      run:
+          - apt-get install -y gcc
+          - apt-get install -y coreutils
+    - type: command
+      run: apt-get update
+      invalidate_after: 360
+    - type: copy
+      source: .
+      dest: /products
