@@ -67,10 +67,7 @@ class Step(object):
         self.config = config
         self.start_time = time.time()
         self.cacheable = True
-        self.labels = {
-            "potter-key": '{}-{}'.format(self.run.config['name'], self.step_num),
-            "potter-config-hash": str(hash(json.dumps(self.config)))
-        }
+        self.labels = self.gen_labels()
 
         self.run.log("==> Step {} {} cfg:{}".format(
             step_num, self.__class__.__name__, self.config), color="HEADER")
@@ -86,6 +83,13 @@ class Step(object):
                     created=datetime.datetime.utcfromtimestamp(info[0]['Created']),
                     runtime=float(info[0]['Labels'].get('potter-runtime')))
         logger.info("Found cache for step. {}".format(info))
+    def gen_labels(self):
+        return {
+            "potter_name": self.run.config['name'],
+            "potter_step": str(self.step_num),
+            "potter_config_hash": self.config_hash,
+            "potter_config": json.dumps(self.config)
+        }
 
         # Determine cache usage by step config
         if info['config_hash'] != self.labels['potter-config-hash']:
