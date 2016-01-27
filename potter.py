@@ -48,7 +48,7 @@ class Run(object):
         image = None
 
         # Lookup all potential caching candidates
-        resps = self.client.images(all=True, filters={'label': "potter_name={}".format(self.config['name'])})
+        resps = self.client.images(all=True, filters={'label': "potter_repo={}".format(self.config['repo'])})
         cache_by_step = {}
         unused_cache = set()
         for resp in resps:
@@ -133,7 +133,7 @@ class Step(object):
 
     def gen_labels(self):
         return {
-            "potter_name": self.run.config['name'],
+            "potter_repo": self.run.config['repo'],
             "potter_step": str(self.step_num),
             "potter_config_hash": self.config_hash,
             "potter_config": json.dumps(self.config)
@@ -179,7 +179,8 @@ class Step(object):
     def commit_container(self, container_id):
         assert len(container_id) == 64
         self.labels['potter_runtime'] = str(time.time() - self.start_time)
-        resp = self.run.client.commit(container=container_id, conf={'Labels': self.labels})
+        resp = self.run.client.commit(container=container_id, conf={'Labels': self.labels},
+                                      repository=self.run.config['repo'])
         self.run.client.remove_container(container=container_id)
         resp = self.run.client.inspect_image(image=resp['Id'])
         image = Image.from_inspect(resp)

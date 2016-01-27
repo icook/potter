@@ -1,4 +1,4 @@
-name: rethinkdb
+repo: icook/rethinkdb
 steps:
     - type: pull
       image: ubuntu
