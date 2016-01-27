@@ -10,6 +10,7 @@ import sys
 import logging
 import docker
 import docker.utils
+import jinja2
 
 logger = logging.getLogger('potter')
 
@@ -23,7 +24,8 @@ class Run(object):
         self.images = []
         self.containers = []
         self.__dict__.update(kwargs)
-        config_unpacked = yaml.load(self.config_file.read())
+        yml = jinja2.Template(self.config_file.read()).render(env=os.environ)
+        config_unpacked = yaml.load(yml)
         self.config = config_unpacked['config']
         self.build = config_unpacked['build']
         self.client = docker.Client(**docker.utils.kwargs_from_env(assert_hostname=False))

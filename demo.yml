@@ -12,6 +12,6 @@ build:
               - apt-get install -y postgresql
               - rm -rf /var/lib/apt/lists/*
     - copy:
-          source: /Users/icook/rethinkdb_data/
+          source: /Users/icook/{{ env['TEST'] }}/
           dest: /data
           invalidate_after: 5
