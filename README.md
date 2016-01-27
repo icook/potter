@@ -29,7 +29,7 @@ files separate building the image from configuring it.
 
 In a Dockerfile
 
-```
+``` Dockerfile
 FROM ubuntu:14.04
 
 USER docker
@@ -42,7 +42,7 @@ COPY . /projects
 
 In a potter build file
 
-```
+``` yml
 build:
   - pull:
       image: ubuntu
@@ -65,7 +65,7 @@ build:
 
 In a Dockerfile
 
-```
+``` Dockerfile
 ONBUILD rm -rf /
 STOPSIGNAL 9
 VOLUME /var/log /var/db
@@ -81,7 +81,7 @@ WORKDIR /home/docker
 
 In a potter build file
 
-```
+``` yml
 config:
   onbuild: rm -rf /
   stopsignal: 9
