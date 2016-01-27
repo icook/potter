@@ -181,6 +181,7 @@ class Copy(Step):
 
 class Pull(Step):
     def _execute(self):
+        assert self.target_image is None  # Pull can only be first step
         tag = self.config.get('tag', 'latest')
         self.run.log("Pulling docker image {}:{}".format(self.config['image'], tag))
         progress = False
