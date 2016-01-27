@@ -2,12 +2,10 @@ import yaml
 import argparse
 import tempfile
 import os
-import io
 import tarfile
 import datetime
 import time
 import json
-import tempfile
 import sys
 import logging
 import docker
@@ -58,7 +56,7 @@ class Run(object):
             step_obj = step_cls(self, step, i, image)
             image = step_obj.execute()
 
-        self.log("=====> Created {} in {}".format(image, time.time() - start), color='OKGREEN')
+        self.log("=====> Created {} in {}".format(image[:12], time.time() - start), color='OKGREEN')
 
 
 class Step(object):
@@ -74,7 +72,8 @@ class Step(object):
             "potter-config-hash": str(hash(json.dumps(self.config)))
         }
 
-        self.run.log("==> Step {} {}".format(step_num, self.config), color="HEADER")
+        self.run.log("==> Step {} {} cfg:{}".format(
+            step_num, self.__class__.__name__, self.config), color="HEADER")
 
     def can_cache(self):
         """ Check if there is a cache, and if so, should we use it? """
@@ -110,7 +109,7 @@ class Step(object):
         if self.cacheable:
             info = self.can_cache()
             if info:
-                self.run.log("==> Using cached image id {}".format(info['id']), color="OKBLUE")
+                self.run.log("==> Using cached image id {}".format(info['id'][:12]), color="OKBLUE")
                 return info['id']
 
         return self._execute()
@@ -124,7 +123,7 @@ class Step(object):
         image = self.run.client.commit(container=container_id, conf={'Labels': self.labels})
         assert len(image['Id']) == 64
         self.run.client.remove_container(container=container_id)
-        self.run.log("==> New image with hash {} and labels {}".format(image['Id'], self.labels), color="OKGREEN")
+        self.run.log("==> New image with hash {} and labels {}".format(image['Id'][:12], self.labels), color="OKGREEN")
         return image['Id']
 
 
@@ -179,7 +178,7 @@ class Copy(Step):
 class Pull(Step):
     def _execute(self):
         tag = self.config.get('tag', 'latest')
-        self.run.log("Pulling docker image {} tag {}".format(self.config['image'], tag))
+        self.run.log("Pulling docker image {}:{}".format(self.config['image'], tag))
         progress = False
         for log in self.run.client.pull(repository=self.config['image'], tag=tag, stream=True):
 
@@ -206,7 +205,7 @@ if __name__ == "__main__":
     logger.addHandler(console)
     logger.setLevel(logging.DEBUG)
 
-    parser = argparse.ArgumentParser(description='Build a potter config file')
+    parser = argparse.ArgumentParser(description='Build a docker container from a potter config file')
     parser.add_argument('config_file', help='the configuration file to load', type=argparse.FileType('r'))
 
     potter = Run(**vars(parser.parse_args()))
