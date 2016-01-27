@@ -49,10 +49,12 @@ class Run(object):
 
         # Lookup all potential caching candidates
         resps = self.client.images(all=True, filters={'label': "potter_name={}".format(self.config['name'])})
-        cache_images = {}
+        cache_by_step = {}
+        unused_cache = set()
         for resp in resps:
             image = Image(resp, cache=True)
-            cache_images.setdefault(image.step, []).append(image)
+            unused_cache.add(image)
+            cache_by_step.setdefault(image.step, []).append(image)
 
         cache_enabled = True
         for i, step in enumerate(self.config['steps']):
@@ -62,13 +64,23 @@ class Run(object):
                 logger.error("{} is an invalid step type".format(typ))
                 return False
 
-            cache_objs = cache_images.get(i, []) if cache_enabled else []
+            cache_objs = cache_by_step.get(i, []) if cache_enabled else []
             step_obj = step_cls(self, step, i, image, cache_objs)
             image = step_obj.execute()
             if image.cache is False:
                 cache_enabled = False
+            else:
+                unused_cache.remove(image)
+
 
         self.log("=====> Created image {} in {}".format(image, time.time() - start), color='OKGREEN')
+        for image in unused_cache:
+            try:
+                self.client.remove_image(image=image.id)
+            except docker.errors.APIError:
+                pass
+            else:
+                self.log("Removing unused cache image {}".format(image.id))
 
 
 class Image(object):
@@ -96,6 +108,9 @@ class Image(object):
         without_milli = resp['Created'].rsplit(".", 1)[0]
         obj.created = datetime.datetime.strptime(without_milli, "%Y-%m-%dT%H:%M:%S")
         return obj
+
+    def __hash__(self):
+        return int(self.id, 16)
 
     def __str__(self):
         return "<Image {}>".format(self.id[:12])
