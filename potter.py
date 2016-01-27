@@ -83,7 +83,7 @@ class Run(object):
             except docker.errors.APIError:
                 pass
             else:
-                self.log("Removing unused cache image {}".format(image.id))
+                self.log("Removing unused cache image {}".format(image))
 
 
 class Image(object):

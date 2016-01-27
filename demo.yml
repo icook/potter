@@ -2,7 +2,7 @@ config:
   repo: icook/rethinkdb
   volumes:
     "/var/log": /var/db
-steps:
+build:
     - pull:
           image: ubuntu
           tag: 14.04
