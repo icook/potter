@@ -245,7 +245,7 @@ class Pull(Step):
                 print(data['status'])
         self.start_time = time.time()  # Don't count the pull time as part of runtime
         self.run.log("==> Using image {}:{} as base".format(self.config['image'], tag), color="OKGREEN")
-        container = self.run.client.create_container(image=self.config['image'])
+        container = self.run.client.create_container(image="{}:{}".format(self.config['image'], tag))
         return self.commit_container(container['Id'])
 
 
