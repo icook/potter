@@ -1,10 +1,13 @@
 import yaml
+import tempfile
+import os
+import io
+import tarfile
 import datetime
 import time
 import json
 import tempfile
 import sys
-import sh
 import logging
 import docker
 import docker.utils
@@ -12,23 +15,7 @@ import docker.utils
 logger = logging.getLogger('potter')
 
 
-def run(*cmd, **kwargs):
-    logger.debug("\033[95mRunning 'docker {}'\033[0m".format(" ".join(cmd)))
-    output = ""
-    try:
-        for line in sh.docker(*cmd, _tty_in=True, _iter="out"):
-            if len(output) < 4096:
-                output += line
-            sys.stdout.write(line)
-            sys.stdout.flush()
-    except sh.ErrorReturnCode:
-        if kwargs.get('soft') is False:
-            logger.info("\033[91mFailed processing {}\033[0m".format(cmd))
-            raise
-
-    return output.strip()
-
-
+client = docker.Client(**docker.utils.kwargs_from_env(assert_hostname=False))
 def main(images, containers):
     start = time.time()
 
@@ -39,7 +26,6 @@ def main(images, containers):
     logger.addHandler(console)
     logger.setLevel(logging.DEBUG)
 
-    client = docker.Client(**docker.utils.kwargs_from_env(assert_hostname=False))
 
     with open(sys.argv[1]) as f:
         config = yaml.load(f.read())
@@ -90,21 +76,65 @@ def main(images, containers):
                 command = "; ".join(step['run'])
             else:
                 command = step['run']
-            r = run("run", "-i", image_name, "/bin/bash", "-c", command)
-            container_name = run("ps", "-l", "-q", "--no-trunc")
+            ret = client.create_container(image=image_name, command=["/bin/bash", "-c", command])
+            client.start(ret['Id'])
+            for log in client.attach(container=ret['Id'], stdout=True, stderr=True, stream=True, logs=True):
+                sys.stdout.write(log)
+                sys.stdout.flush()
+            container_name = ret['Id']
             containers.append(container_name)
         elif typ == 'pull':
             logger.info("Checking for docker image {}".format(step['image']))
-            run('pull', step['image'])
+            progress = False
+            for log in client.pull(repository=step['image'], tag=step.get('tag', 'latest'), stream=True):
+                data = json.loads(log)
+                if 'progress' in data:
+                    if progress:
+                        sys.stdout.write('\r')
+                    sys.stdout.write(data['progress'])
+                    progress = True
+                else:
+                    if progress:
+                        progress = False
+                        sys.stdout.write('\n')
+                    print(data['status'])
             image_name = step['image']
             continue
         elif typ == 'copy':
-            container_name = run("create", image_name)
+            ret = client.create_container(image=image_name)
+            container_name = ret['Id']
             containers.append(container_name)
-            r = run("cp", step['source'], "{}:{}".format(container_name, step['dest']))
+            uploadpath = os.path.join(step['dest'], os.path.basename(step['source']))
+            logger.error("Creating temporary tar file to upload {} to {}"
+                         .format(step['source'], uploadpath))
+            fo = tempfile.TemporaryFile()
+            tar = tarfile.open(fileobj=fo, mode='w|')
+            tar.add(step['source'], arcname=uploadpath)
+            tar.close()
+            def next_chunk(fo):
+                total = float(fo.tell())
+                # Make a newline that we'll rewrite a lot
+                fo.seek(0)
+                read = 0
+                while 1:
+                    data = fo.read(1024)
+                    if not data:
+                        sys.stdout.write('\n')
+                        break
+                    yield data
+                    read += 1024
+                    equals = int(read / total * 20)
+                    sys.stdout.write('\r[{}{}] {:.2f}%        '.format(
+                        "=" * equals,
+                        " " * (20 - equals),
+                        read * 100 / total))
+                    sys.stdout.flush()
+            logger.error("Uploading and unpacking tar into container")
+            client.put_archive(container=container_name, path='/', data=next_chunk(fo))
+            fo.close()
         else:
             logger.error("{} is an invalid step type".format(typ))
-            return
+            raise ValueError()
 
         if container_name is not None:
             assert len(container_name) == 64
@@ -113,15 +143,15 @@ def main(images, containers):
             image_name = ret['Id']
 
         assert len(image_name) == 64
-        images.append(image_name)
         logger.info("==> New image with hash {} and labels {}".format(image_name, labels))
+        images.append(image_name)
 
-        r = run("rm", container_name)
+        r = client.remove_container(container=container_name)
         containers.pop()
 
     final_image = images.pop()
     for image in images:
-        run("rmi", image)
+        client.remove_image(image=image)
     logger.info("\033[93m==========> Created {} in {}\033[0m".format(final_image, time.time() - start))
 
 
@@ -133,7 +163,7 @@ if __name__ == "__main__":
     except:
         logger.error("Exception raised, cleaning up ==========================")
         for container in containers:
-            run("rm", "-f", container, soft=True)
+            client.remove_container(container=container)
         for image in images:
-            run("rmi", "-f", image, soft=True)
+            client.remove_image(image=image)
         raise
