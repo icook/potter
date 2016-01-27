@@ -19,12 +19,12 @@ class Run(object):
     colors = dict(HEADER='\033[95m', OKBLUE='\033[94m', OKGREEN='\033[92m',
                   WARNING='\033[93m', FAIL='\033[91m')
 
-    def __init__(self, **kwargs):
+    def __init__(self, context=None, **kwargs):
         self.use_color = True
         self.images = []
         self.containers = []
         self.__dict__.update(kwargs)
-        yml = jinja2.Template(self.config_file.read()).render(env=os.environ)
+        yml = jinja2.Template(self.config_file.read()).render(env=os.environ, **context or {})
         config_unpacked = yaml.load(yml)
         self.config = config_unpacked['config']
         self.build = config_unpacked['build']
@@ -280,8 +280,16 @@ def main():
     logger.addHandler(console)
     logger.setLevel(logging.DEBUG)
 
+    class StoreNameValuePair(argparse.Action):
+        def __call__(self, parser, namespace, values, option_string=None):
+            if getattr(namespace, self.dest) is None:
+                setattr(namespace, self.dest, {})
+            n, v = values.split('=')
+            getattr(namespace, self.dest)[n] = v
+
     parser = argparse.ArgumentParser(description='Build a docker container from a potter config file')
     parser.add_argument('config_file', help='the configuration file to load', type=argparse.FileType('r'))
+    parser.add_argument('--context', help='key value pairs to feed to jinja', action=StoreNameValuePair)
 
     potter = Run(**vars(parser.parse_args()))
     potter.run()
