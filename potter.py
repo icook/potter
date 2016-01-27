@@ -187,6 +187,8 @@ class Command(Step):
         for log in self.run.client.attach(container=container['Id'], stdout=True, stderr=True, stream=True, logs=True):
             sys.stdout.write(log)
             sys.stdout.flush()
+        if self.run.client.wait(container=container['Id']) != 0:
+            raise Exception("Command step {} failed".format(self.step_num))
         return self.commit_container(container['Id'])
 
 
