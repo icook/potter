@@ -74,7 +74,7 @@ def main(images, containers):
             invalidate_after = step.get('invalidate_after')
             if invalidate_after is not None:
                 delta = datetime.timedelta(seconds=int(invalidate_after))
-                if info['created'] > datetime.datetime.utcnow() - delta:
+                if info['created'] < datetime.datetime.utcnow() - delta:
                     logger.info("Skipping cache because cache image is too old.")
                     use_cache = False
 
