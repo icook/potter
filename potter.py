@@ -67,13 +67,14 @@ def main(images, containers):
             if use_cache:
                 logger.info("Using cached image id {}".format(info['id']))
                 image_name = info['id']
+                images.append(image_name)
                 continue
 
 
         container_name = None
         if typ == 'command':
             if isinstance(step['run'], list):
-                command = "; ".join(step['run'])
+                command = step.get('join', " && ").join(step['run'])
             else:
                 command = step['run']
             ret = client.create_container(image=image_name, command=["/bin/bash", "-c", command])
