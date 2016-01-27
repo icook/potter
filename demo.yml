@@ -1,14 +1,17 @@
-name: python
+name: rethinkdb
 steps:
     - type: pull
-      image: python
+      image: ubuntu
+      tag: 14.04
     - type: command
       run:
-          - apt-get install -y gcc
-          - apt-get install -y coreutils
-    - type: command
-      run: apt-get update
-      invalidate_after: 360
+          - apt-get update
+          - apt-get install -y wget
+          - echo "deb http://download.rethinkdb.com/apt `lsb_release -cs` main" > /etc/apt/sources.list.d/rethinkdb.list
+          - wget -O- http://download.rethinkdb.com/apt/pubkey.gpg | apt-key add -
+          - apt-get install -y rethinkdb python-pip
+          - rm -rf /var/lib/apt/lists/*
     - type: copy
-      source: .
-      dest: /products
+      source: /Users/icook/rethinkdb_data/
+      dest: /data
+      invalidate_after: 5
