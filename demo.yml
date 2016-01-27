@@ -1,18 +1,17 @@
-repo: icook/rethinkdb
+config:
+  repo: icook/rethinkdb
+  volumes:
+    "/var/log": /var/db
 steps:
-    - type: pull
-      image: ubuntu
-      tag: 14.04
-    - type: command
-      run:
-          - apt-get update
-          - apt-get install -y wget
-          - echo "deb http://download.rethinkdb.com/apt `lsb_release -cs` main" > /etc/apt/sources.list.d/rethinkdb.list
-          - wget -O- http://download.rethinkdb.com/apt/pubkey.gpg | apt-key add -
-          - apt-get update
-          - apt-get install -y rethinkdb python-pip
-          - rm -rf /var/lib/apt/lists/*
-    - type: copy
-      source: /Users/icook/rethinkdb_data/
-      dest: /data
-      invalidate_after: 5
+    - pull:
+          image: ubuntu
+          tag: 14.04
+    - command:
+          run:
+              - apt-get update
+              - apt-get install -y postgresql
+              - rm -rf /var/lib/apt/lists/*
+    - copy:
+          source: /Users/icook/rethinkdb_data/
+          dest: /data
+          invalidate_after: 5
