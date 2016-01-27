@@ -70,10 +70,10 @@ class Run(object):
             cache_objs = cache_by_step.get(i, []) if cache_enabled else []
             step_obj = step_cls(self, step[typ], i, target_image, cache_objs)
             target_image = step_obj.execute()
-            if image.cache is False:
+            if target_image.cache is False:
                 cache_enabled = False
             else:
-                unused_cache.remove(image)
+                unused_cache.remove(target_image)
 
 
         self.log("=====> Created image {} in {}".format(image, time.time() - start), color='OKGREEN')
