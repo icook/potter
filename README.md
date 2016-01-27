@@ -1,6 +1,8 @@
-Motivations
+Potter
 =============
-Dockerfile format has several odd/unexpected design decisions
-- You cannot easily join multiple commands into a single layer.
-- You cannot setup cache properties
-- Odd format choice with so many solid well supported formats out there
+Potter is a tool that creates containers. It aims to have all functionality of
+`docker build`, but with several key improvments.
+
+* Granular caching controls to iterate faster when designing containers. Speed in general is a focus.
+* Standard file format. Potter config files can be YAML, JSON, or toml.
+* Pluggable architecture. Custom Step objects can be imported dynamically at runtime.
