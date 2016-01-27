@@ -18,6 +18,60 @@ Dockerfiles do.
 * Using both `ENTRYPOINT` and `CMD` to specify defaults to `ENTRYPOINT`.
 * Using `WORKDIR` anywhere, as full paths are clearer
 
+Features
+========
+
+Caches can have a timeout set
+
+``` yml
+config:
+  repo: icook/testing
+build:
+  - pull:
+    image: ubuntu
+    tag: 14.04
+    invalidate_after: 20
+```
+
+When run the first time, the image will be pulled or checked.
+
+``` bash
+==> Step 0 Pull cfg:{'invalidate_after': 20, 'image': 'ubuntu', 'tag': 14.04}
+Pulling docker image ubuntu:14.04
+Pulling from library/ubuntu
+Digest: sha256:0844055d30c0cad5ac58097597a94640b0102f47d6fa972c94b7c129d87a44b7
+Status: Image is up to date for ubuntu:14.04
+==> Using image ubuntu:14.04 as base
+==> New image <Image 1361ab73efbb> generated in 0.0156188011169
+=====> Created image None in 1.88799595833
+```
+
+When run again quickly, it will use the cache:
+
+``` bash
+==> Step 0 Pull cfg:{'invalidate_after': 20, 'image': 'ubuntu', 'tag': 14.04}
+Found 1 cached image(s) from previous run
+==> Using cached <Image e2d3fc74b78b>, saved 0.01
+=====> Created image <Image e2d3fc74b78b> in 0.0380079746246
+```
+
+Then after it expires in 20 seconds, the old cache will be invalidated and the
+command will rerun.
+
+``` bash
+==> Step 0 Pull cfg:{'invalidate_after': 20, 'image': 'ubuntu', 'tag': 14.04}
+Found 1 cached image(s) from previous run
+Skipping <Image e2d3fc74b78b> cache because image is too old.
+Pulling docker image ubuntu:14.04
+Pulling from library/ubuntu
+Digest: sha256:0844055d30c0cad5ac58097597a94640b0102f47d6fa972c94b7c129d87a44b7
+Status: Image is up to date for ubuntu:14.04
+==> Using image ubuntu:14.04 as base
+==> New image <Image b6df2d2ba61b> generated in 0.0160322189331
+=====> Created image <Image e2d3fc74b78b> in 2.5099029541
+Removing unused cache image <Image e2d3fc74b78b>
+```
+
 Use
 ===
 
