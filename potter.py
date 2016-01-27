@@ -23,7 +23,9 @@ class Run(object):
         self.images = []
         self.containers = []
         self.__dict__.update(kwargs)
-        self.config = yaml.load(self.config_file.read())
+        config_unpacked = yaml.load(self.config_file.read())
+        self.config = config_unpacked['config']
+        self.build = config_unpacked['build']
         self.client = docker.Client(**docker.utils.kwargs_from_env(assert_hostname=False))
 
     def log(self, msg, level=logging.INFO, color=None):
@@ -57,16 +59,17 @@ class Run(object):
             cache_by_step.setdefault(image.step, []).append(image)
 
         cache_enabled = True
-        for i, step in enumerate(self.config['steps']):
-            typ = step.pop('type')
+        target_image = None
+        for i, step in enumerate(self.build):
+            typ = step.keys()[0]
             step_cls = builtins.get(typ)
             if step_cls is None:
                 logger.error("{} is an invalid step type".format(typ))
                 return False
 
             cache_objs = cache_by_step.get(i, []) if cache_enabled else []
-            step_obj = step_cls(self, step, i, image, cache_objs)
-            image = step_obj.execute()
+            step_obj = step_cls(self, step[typ], i, target_image, cache_objs)
+            target_image = step_obj.execute()
             if image.cache is False:
                 cache_enabled = False
             else:
