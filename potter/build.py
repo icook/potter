@@ -34,7 +34,7 @@ class Build(object):
         config_unpacked = yaml.load(yml)
         self.config = config_unpacked['config']
         self.build = config_unpacked['build']
-        self.client = docker.Client(**docker.utils.kwargs_from_env(assert_hostname=False))
+        self.client = docker.Client(version='auto', **docker.utils.kwargs_from_env(assert_hostname=False))
 
     def log(self, msg, level=logging.INFO, color=None):
         if color and self.use_color:
