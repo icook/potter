@@ -91,6 +91,26 @@ class Run(object):
             else:
                 self.log("Removing unused cache image {}".format(image))
 
+    def clean(self):
+        resps = self.client.containers(all=True, filters={'label': "potter_repo={}".format(self.config['repo'])})
+        self.log("Deleting all containers related to {}"
+                 .format(self.config['repo']), color='HEADER')
+        for resp in resps:
+            self.log("Removing {}".format(resp['Id']))
+            self.client.remove_container(container=resp['Id'], force=True)
+
+        resps = self.client.images(all=True, filters={'label': "potter_repo={}".format(self.config['repo'])})
+        self.log("Deleting all images related to {}"
+                 .format(self.config['repo']), color='HEADER')
+        images = [Image(r) for r in resps]
+        images.sort(key=lambda i: i.step, reverse=True)
+        for image in images:
+            self.log(image.line_desc)
+            try:
+                self.client.remove_image(image=image.id, force=True, noprune=True)
+            except docker.errors.NotFound:
+                pass
+
 
 class Image(object):
     """ A wrapper for images that potter has generated """
@@ -117,6 +137,10 @@ class Image(object):
         without_milli = resp['Created'].rsplit(".", 1)[0]
         obj.created = datetime.datetime.strptime(without_milli, "%Y-%m-%dT%H:%M:%S")
         return obj
+
+    @property
+    def line_desc(self):
+        return "{step}\t{id}\t{created}\t{config}".format(**self.__dict__)
 
     def __hash__(self):
         return int(self.id, 16)
@@ -160,7 +184,7 @@ class Step(object):
     def _config_hash_changed(self, image):
         if image.config_hash != self.config_hash:
             self.run.debug("Skipping {} cache because step configuration has changed"
-                         .format(image))
+                           .format(image))
             return False
 
     def _cache_disabled_flag(self, image):
@@ -301,10 +325,15 @@ def main():
 
     parser = argparse.ArgumentParser(description='Build a docker container from a potter config file')
     parser.add_argument('config_file', help='the configuration file to load', type=argparse.FileType('r'))
+    parser.add_argument('command', choices=['build', 'clean'])
     parser.add_argument('--context', help='key value pairs to feed to jinja', action=StoreNameValuePair)
 
-    potter = Run(**vars(parser.parse_args()))
-    potter.run()
+    args = parser.parse_args()
+    potter = Run(**vars(args))
+    if args.command == 'build':
+        potter.run()
+    elif args.command == 'clean':
+        potter.clean()
 
 if __name__ == "__main__":
     main()
