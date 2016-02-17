@@ -10,7 +10,10 @@ import sys
 import logging
 import docker
 import docker.utils
-import jinja2
+try:
+    import jinja2
+except ImportError:
+    jinja2 = None
 
 logger = logging.getLogger('potter')
 
@@ -24,7 +27,13 @@ class Run(object):
         self.images = []
         self.containers = []
         self.__dict__.update(kwargs)
-        yml = jinja2.Template(self.config_file.read()).render(env=os.environ, **context or {})
+        config_contents = self.config_file.read().decode('utf8')
+        if context is not None and jinja2 is None:
+            raise Exception("Jinja2 must be installed to process context vars")
+        elif jinja2 is not None:
+            yml = jinja2.Template(config_contents).render(env=os.environ, **context or {})
+        else:
+            yml = config_contents
         config_unpacked = yaml.load(yml)
         self.config = config_unpacked['config']
         self.build = config_unpacked['build']
