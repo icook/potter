@@ -1,7 +1,7 @@
 import io
 import datetime
 import json
-import potter as p
+import potter.build
 
 
 default_config = b"""
@@ -17,7 +17,7 @@ build:
 def make_run(config=default_config):
     fo = io.BytesIO(config)
     fo.seek(0)
-    r = p.Run(config_file=fo)
+    r = potter.build.Build(config_file=fo)
     return r
 
 

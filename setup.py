@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 
 from setuptools import setup, find_packages
+import potter
 
 setup(name='potter',
-      version='0.2.0',
+      version=potter.__version__,
       packages=find_packages(),
       entry_points={
           'console_scripts': [
-              'potter = potter:main'
+              'potter = potter.cmd:main'
           ]
       },
       install_requires=[
