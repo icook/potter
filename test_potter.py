@@ -1,16 +1,10 @@
-import pytest
 import io
 import datetime
 import json
-
-try:
-    import unittest.mock as mock
-except ImportError:
-    import mock
 import potter as p
 
 
-default_config = """
+default_config = b"""
 config:
   repo: icook/test
 build:
@@ -42,14 +36,12 @@ def test_run():
 
 
 def test_pull():
-    start = datetime.datetime.utcnow()
     r = make_run()
     im, unused_cache = r.run_steps({}, set())
     r.clean()
 
 
 def test_command():
-    start = datetime.datetime.utcnow()
     r = make_run()
     step_config = {"run": ["touch /iwashere"]}
     r.build.append({"command": step_config})
@@ -58,7 +50,6 @@ def test_command():
 
 
 def test_copy():
-    start = datetime.datetime.utcnow()
     r = make_run()
     r.build.append({"copy": {"source": ".", "dest": "/data"}})
     im, unused_cache = r.run_steps({}, set())
