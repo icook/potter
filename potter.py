@@ -333,13 +333,6 @@ class Pull(Step):
 
 
 def main():
-    console = logging.StreamHandler()
-    console.setLevel(logging.DEBUG)
-    formatter = logging.Formatter('%(message)s')
-    console.setFormatter(formatter)
-    logger.addHandler(console)
-    logger.setLevel(logging.DEBUG)
-
     class StoreNameValuePair(argparse.Action):
         def __call__(self, parser, namespace, values, option_string=None):
             if getattr(namespace, self.dest) is None:
@@ -350,9 +343,18 @@ def main():
     parser = argparse.ArgumentParser(description='Build a docker container from a potter config file')
     parser.add_argument('config_file', help='the configuration file to load', type=argparse.FileType('r'))
     parser.add_argument('command', choices=['build', 'info'])
-    parser.add_argument('--context', help='key value pairs to feed to jinja', action=StoreNameValuePair)
-
+    parser.add_argument('--log-level', '-l', help='how verbose to log',
+                        choices=['DEBUG', 'INFO', 'WARN', 'ERROR'], default='INFO')
+    parser.add_argument('--context', help='key value pairs to feed to jinja in key=val format', action=StoreNameValuePair)
     args = parser.parse_args()
+
+    console = logging.StreamHandler()
+    console.setLevel(getattr(logging, args.log_level))
+    formatter = logging.Formatter('%(message)s')
+    console.setFormatter(formatter)
+    logger.addHandler(console)
+    logger.setLevel(getattr(logging, args.log_level))
+
     potter = Run(**vars(args))
     if args.command == 'build':
         potter.run()
