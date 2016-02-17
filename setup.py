@@ -9,5 +9,9 @@ setup(name='potter',
           'console_scripts': [
               'potter = potter:main'
           ]
-      }
+      },
+      install_requires=[
+          'docker-py >= 1.7',
+          'pyyaml >= 3.0',
+      ]
       )
