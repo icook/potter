@@ -99,6 +99,22 @@ class Run(object):
             else:
                 self.log("Removing unused cache image {}".format(image))
 
+    def info(self):
+        steps = self.create_steps()
+        resps = self.client.images(all=True, filters={'label': "potter_repo={}".format(self.config['repo'])})
+        self.log("All images related to {}".format(self.config['repo']), color='HEADER')
+        self.log("{step:7}{short_id:15}{delta:20}{attrs:40}{config}"
+                 .format(step="Step#", short_id="Image ID", delta="Created", config="Config", attrs="Attributes"))
+        images = [Image(r) for r in resps]
+        images.sort(key=lambda i: i.step, reverse=True)
+        for image in images:
+            attrs = []
+            if steps[image.step].valid_cache(image):
+                attrs.append("Valid Cache")
+
+            attrs = ", ".join(attrs)
+            self.log("{s.step:<7}{s.short_id:15}{s.delta:20}{attrs:<40}{s.config}".format(attrs=attrs, s=image))
+
     def clean(self):
         resps = self.client.containers(all=True, filters={'label': "potter_repo={}".format(self.config['repo'])})
         self.log("Deleting all containers related to {}"
@@ -333,7 +349,7 @@ def main():
 
     parser = argparse.ArgumentParser(description='Build a docker container from a potter config file')
     parser.add_argument('config_file', help='the configuration file to load', type=argparse.FileType('r'))
-    parser.add_argument('command', choices=['build', 'clean'])
+    parser.add_argument('command', choices=['build', 'info'])
     parser.add_argument('--context', help='key value pairs to feed to jinja', action=StoreNameValuePair)
 
     args = parser.parse_args()
@@ -342,6 +358,8 @@ def main():
         potter.run()
     elif args.command == 'clean':
         potter.clean()
+    elif args.command == 'info':
+        potter.info()
 
 if __name__ == "__main__":
     main()
