@@ -150,15 +150,25 @@ class Step(object):
 
     def valid_cache(self, image):
         """ Check if this image is a valid cached version of this step """
+        checks = [self._config_hash_changed, self._cache_disabled_flag, self._invalidation_timer_expired]
+        for check in checks:
+            if check(image) is False:
+                return False
+
+        return True
+
+    def _config_hash_changed(self, image):
         if image.config_hash != self.config_hash:
             self.run.debug("Skipping {} cache because step configuration has changed"
                          .format(image))
             return False
 
+    def _cache_disabled_flag(self, image):
         if self.config.get('nocache') is True:
             self.run.debug("Skipping {} cache because nocache flag".format(image))
             return False
 
+    def _invalidation_timer_expired(self, image):
         invalidate_after = self.config.get('invalidate_after')
         if invalidate_after is not None:
             delta = datetime.timedelta(seconds=int(invalidate_after))
@@ -166,8 +176,6 @@ class Step(object):
                 self.run.debug("Skipping {} cache because cache image is too old."
                                .format(image))
                 return False
-
-        return True
 
     def execute(self):
         if self.cacheable and self.cached_images:
