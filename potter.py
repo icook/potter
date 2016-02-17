@@ -239,7 +239,8 @@ class Command(Step):
             command = self.config.get('join', " && ").join(self.config['run'])
         else:
             command = self.config['run']
-        container = self.run.client.create_container(image=self.target_image.id, command=["/bin/bash", "-c", command])
+        cmd = self.config.get('shell', '/bin/sh')
+        container = self.run.client.create_container(image=self.target_image.id, command=[cmd, "-c", command])
         self.run.client.start(container['Id'])
         for log in self.run.client.attach(container=container['Id'], stdout=True, stderr=True, stream=True, logs=True):
             sys.stdout.write(log)
