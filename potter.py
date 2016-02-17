@@ -113,7 +113,7 @@ class Run(object):
         images = [Image(r) for r in resps]
         images.sort(key=lambda i: i.step, reverse=True)
         for image in images:
-            self.log(image.line_desc)
+            self.log("{s.step:<7}{s.short_id:15}{s.delta:30}{s.config}".format(s=image))
             try:
                 self.client.remove_image(image=image.id, force=True, noprune=True)
             except docker.errors.NotFound:
@@ -147,8 +147,12 @@ class Image(object):
         return obj
 
     @property
-    def line_desc(self):
-        return "{step}\t{id}\t{created}\t{config}".format(**self.__dict__)
+    def delta(self):
+        return str(datetime.datetime.utcnow() - self.created)
+
+    @property
+    def short_id(self):
+        return self.id[:12]
 
     def __hash__(self):
         return int(self.id, 16)
