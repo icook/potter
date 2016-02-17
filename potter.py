@@ -324,7 +324,7 @@ class Pull(Step):
         progress = False
         for log in self.run.client.pull(repository=self.config['image'], tag=tag, stream=True):
 
-            data = json.loads(log)
+            data = json.loads(log.decode('utf8'))
             if 'progress' in data:
                 if progress:
                     sys.stdout.write('\r')
