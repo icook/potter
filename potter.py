@@ -61,20 +61,28 @@ class Run(object):
 
         return cache_by_step, unused_cache
 
-    def run_steps(self, cache_by_step, unused_cache):
+    def create_steps(self):
         builtins = dict(pull=Pull, command=Command, copy=Copy)
-        cache_enabled = True
-        target_image = None
+        steps = []
         for i, step in enumerate(self.build):
-            typ = step.keys()[0]
+            typ = list(step.keys())[0]
             step_cls = builtins.get(typ)
             if step_cls is None:
                 logger.error("{} is an invalid step type".format(typ))
-                return False
+                raise Exception()
+            steps.append(step_cls(self, step[typ], i))
+        return steps
 
+    def run_steps(self, cache_by_step, unused_cache):
+        cache_enabled = True
+        target_image = None
+        steps = self.create_steps()
+        for i, step in enumerate(steps):
+            self.log("==> Step {} {} cfg:{}".format(
+                i, step.__class__.__name__, step.config), color="HEADER")
             cache_objs = cache_by_step.get(i, []) if cache_enabled else []
-            step_obj = step_cls(self, step[typ], i, target_image, cache_objs)
-            target_image = step_obj.execute()
+            target_image = step.execute(cache_objs, target_image)
+            # We've stopped using the cache, must disable moving forward
             if target_image.cache is False:
                 cache_enabled = False
             else:
@@ -150,19 +158,14 @@ class Image(object):
 
 
 class Step(object):
-    def __init__(self, run, config, step_num, target_image, cached_images):
-        self.target_image = target_image
+    def __init__(self, run, config, step_num):
         self.step_num = step_num
         self.run = run
         self.config = config
-        self.cached_images = cached_images
 
         self.start_time = time.time()
         self.cacheable = True
         self.labels = self.gen_labels()
-
-        self.run.log("==> Step {} {} cfg:{}".format(
-            step_num, self.__class__.__name__, self.config), color="HEADER")
 
     def gen_labels(self):
         return {
@@ -201,20 +204,20 @@ class Step(object):
                                .format(image))
                 return False
 
-    def execute(self):
-        if self.cacheable and self.cached_images:
-            self.run.log("Found {} cached image(s) from previous run".format(len(self.cached_images)))
-            self.cached_images = [i for i in self.cached_images if self.valid_cache(i)]
+    def execute(self, cached_images, target_image):
+        if self.cacheable and cached_images:
+            self.run.log("Found {} cached image(s) from previous run".format(len(cached_images)))
+            cached_images = [i for i in cached_images if self.valid_cache(i)]
             # Use the most recently generated of valid cache images
-            self.cached_images.sort(key=lambda img: img.created, reverse=True)
-            if self.cached_images:
-                image = self.cached_images[0]
+            cached_images.sort(key=lambda img: img.created, reverse=True)
+            if cached_images:
+                image = cached_images[0]
                 self.run.log("==> Using cached {}, saved {:.2f}".format(image, image.runtime), color="OKBLUE")
                 return image
 
-        return self._execute()
+        return self._execute(target_image)
 
-    def _execute(self):
+    def _execute(self, target_image):
         raise NotImplemented("_execute must be defined")
 
     def commit_container(self, container_id):
@@ -234,13 +237,13 @@ class Step(object):
 
 
 class Command(Step):
-    def _execute(self):
+    def _execute(self, target_image):
         if isinstance(self.config['run'], list):
             command = self.config.get('join', " && ").join(self.config['run'])
         else:
             command = self.config['run']
         cmd = self.config.get('shell', '/bin/sh')
-        container = self.run.client.create_container(image=self.target_image.id, command=[cmd, "-c", command])
+        container = self.run.client.create_container(image=target_image.id, command=[cmd, "-c", command])
         self.run.client.start(container['Id'])
         for log in self.run.client.attach(container=container['Id'], stdout=True, stderr=True, stream=True, logs=True):
             sys.stdout.write(log)
@@ -251,8 +254,8 @@ class Command(Step):
 
 
 class Copy(Step):
-    def _execute(self):
-        container = self.run.client.create_container(image=self.target_image.id)
+    def _execute(self, target_image):
+        container = self.run.client.create_container(image=target_image.id)
         uploadpath = os.path.join(self.config['dest'], os.path.basename(self.config['source']))
         self.run.log("Creating temporary tar file to upload {} to {}"
                      .format(self.config['source'], uploadpath))
@@ -285,8 +288,8 @@ class Copy(Step):
 
 
 class Pull(Step):
-    def _execute(self):
-        assert self.target_image is None  # Pull can only be first step
+    def _execute(self, target_image):
+        assert target_image is None  # Pull can only be first step
         tag = self.config.get('tag', 'latest')
         self.run.log("Pulling docker image {}:{}".format(self.config['image'], tag))
         progress = False
