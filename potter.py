@@ -40,17 +40,16 @@ class Run(object):
 
     def run(self):
         try:
-            return self.run_steps()
+            start = time.time()
+            cache_by_step, unused_cache = self.load_cache()
+            target_image, unused_cache = self.run_steps(cache_by_step, unused_cache)
+            self.remove_unused(unused_cache)
+            self.log("=====> Created image {} in {}".format(target_image, time.time() - start), color='OKGREEN')
         except:
             logger.error("Exception raised, cleaning up ==========================")
             raise
 
-    def run_steps(self):
-        start = time.time()
-
-        builtins = dict(pull=Pull, command=Command, copy=Copy)
-        image = None
-
+    def load_cache(self):
         # Lookup all potential caching candidates
         resps = self.client.images(all=True, filters={'label': "potter_repo={}".format(self.config['repo'])})
         cache_by_step = {}
@@ -60,6 +59,10 @@ class Run(object):
             unused_cache.add(image)
             cache_by_step.setdefault(image.step, []).append(image)
 
+        return cache_by_step, unused_cache
+
+    def run_steps(self, cache_by_step, unused_cache):
+        builtins = dict(pull=Pull, command=Command, copy=Copy)
         cache_enabled = True
         target_image = None
         for i, step in enumerate(self.build):
@@ -77,8 +80,9 @@ class Run(object):
             else:
                 unused_cache.remove(target_image)
 
+        return target_image, unused_cache
 
-        self.log("=====> Created image {} in {}".format(image, time.time() - start), color='OKGREEN')
+    def remove_unused(self, unused_cache):
         for image in unused_cache:
             try:
                 self.client.remove_image(image=image.id)
